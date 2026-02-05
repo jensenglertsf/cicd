@@ -33,7 +33,7 @@ jobs:
             --user "$SNOWFLAKE_USER" \
             --password "$SNOWFLAKE_PASSWORD" \
             --role "GIT_ADMIN" \
-            --warehouse "CI_WH"
+            --warehouse "COMPUTE_WH"
 
       - name: Deploy to Snowflake
         run: |
