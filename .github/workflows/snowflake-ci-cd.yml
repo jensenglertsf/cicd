@@ -1,0 +1,42 @@
+name: snowflake-ci-cd
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy-to-snowflake:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Snowflake CLI
+        run: pip install "snowflake-cli-labs>=2.0.0"
+
+      - name: Deploy to Snowflake
+        env:
+          SNOWFLAKE_ACCOUNT:   ${{ secrets.SNOWFLAKE_ACCOUNT }}   # e.g. xy12345.eu-central-1
+          SNOWFLAKE_USER:      ${{ secrets.SNOWFLAKE_USER }}      # CI user bound to GIT_ADMIN
+          SNOWFLAKE_PASSWORD:  ${{ secrets.SNOWFLAKE_PASSWORD }}
+          SNOWFLAKE_ROLE:      GIT_ADMIN
+          SNOWFLAKE_WAREHOUSE: COMPUTE_WH
+        run: |
+          snow sql -q "
+            -- 1) Refresh the GIT REPOSITORY in Snowflake
+            ALTER GIT REPOSITORY DEVOPS_DB.INTEGRATION.SNOWFLAKE_DDL_REPO FETCH;
+
+            -- 2) Execute deploy script from mirrored repo (main branch)
+            EXECUTE IMMEDIATE FROM
+              @DEVOPS_DB.INTEGRATION.SNOWFLAKE_DDL_REPO/branches/main/deploy/deploy_all.sql
+            USING (
+              DB_NAME     => 'MY_APP_DB',
+              SCHEMA_NAME => 'PUBLIC'
+            );
+          "
