@@ -18,26 +18,38 @@ jobs:
           python-version: "3.11"
 
       - name: Install Snowflake CLI
-        run: pip install "snowflake-cli-labs>=2.0.0"
+        run: pip install "snowflake-cli-labs>=3.0.0"
 
-      # NEW: define a temporary connection named "ci"
-      - name: Configure Snowflake connection
+      # Optional: quick connectivity test using a temporary connection (-x)
+      - name: Test Snowflake connection
+        env:
+          SNOWFLAKE_ACCOUNT:   ${{ secrets.SNOWFLAKE_ACCOUNT }}   # e.g. xy12345.eu-central-1
+          SNOWFLAKE_USER:      ${{ secrets.SNOWFLAKE_USER }}
+          SNOWFLAKE_PASSWORD:  ${{ secrets.SNOWFLAKE_PASSWORD }}
+        run: |
+          export SNOWFLAKE_ACCOUNT="$SNOWFLAKE_ACCOUNT"
+          export SNOWFLAKE_USER="$SNOWFLAKE_USER"
+          export SNOWFLAKE_PASSWORD="$SNOWFLAKE_PASSWORD"
+          export SNOWFLAKE_ROLE="GIT_ADMIN"
+          export SNOWFLAKE_WAREHOUSE="COMPUTE_WH"
+
+          snow connection test -x
+
+      - name: Deploy to Snowflake
         env:
           SNOWFLAKE_ACCOUNT:   ${{ secrets.SNOWFLAKE_ACCOUNT }}   # e.g. xy12345.eu-central-1
           SNOWFLAKE_USER:      ${{ secrets.SNOWFLAKE_USER }}      # CI user bound to GIT_ADMIN
           SNOWFLAKE_PASSWORD:  ${{ secrets.SNOWFLAKE_PASSWORD }}
         run: |
-          snow connection add ci \
-            --temporary \
-            --account "$SNOWFLAKE_ACCOUNT" \
-            --user "$SNOWFLAKE_USER" \
-            --password "$SNOWFLAKE_PASSWORD" \
-            --role "GIT_ADMIN" \
-            --warehouse "COMPUTE_WH"
+          # Configure environment variables for the temporary connection
+          export SNOWFLAKE_ACCOUNT="$SNOWFLAKE_ACCOUNT"
+          export SNOWFLAKE_USER="$SNOWFLAKE_USER"
+          export SNOWFLAKE_PASSWORD="$SNOWFLAKE_PASSWORD"
+          export SNOWFLAKE_ROLE="GIT_ADMIN"
+          export SNOWFLAKE_WAREHOUSE="COMPUTE_WH"
 
-      - name: Deploy to Snowflake
-        run: |
-          snow sql -c ci -q "
+          # Use a temporary connection (-x) so no default/named connection is required
+          snow sql -x -q "
             ALTER GIT REPOSITORY DEVOPS_DB.INTEGRATION.SNOWFLAKE_DDL_REPO FETCH;
 
             EXECUTE IMMEDIATE FROM
