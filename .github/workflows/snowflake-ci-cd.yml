@@ -2,6 +2,7 @@ name: snowflake-ci-cd
 
 on:
   workflow_dispatch:
+  #TEST
   push:
     branches: [ main ]
 
