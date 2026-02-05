@@ -20,25 +20,30 @@ jobs:
       - name: Install Snowflake CLI
         run: pip install "snowflake-cli-labs>=2.0.0"
 
-      - name: Deploy to Snowflake
+      # NEW: define a temporary connection named "ci"
+      - name: Configure Snowflake connection
         env:
           SNOWFLAKE_ACCOUNT:   ${{ secrets.SNOWFLAKE_ACCOUNT }}   # e.g. xy12345.eu-central-1
           SNOWFLAKE_USER:      ${{ secrets.SNOWFLAKE_USER }}      # CI user bound to GIT_ADMIN
           SNOWFLAKE_PASSWORD:  ${{ secrets.SNOWFLAKE_PASSWORD }}
         run: |
-          snow sql \
+          snow connection add ci \
+            --temporary \
             --account "$SNOWFLAKE_ACCOUNT" \
             --user "$SNOWFLAKE_USER" \
             --password "$SNOWFLAKE_PASSWORD" \
             --role "GIT_ADMIN" \
-            --warehouse "COMPUTE_WH" \
-            -q "
-              ALTER GIT REPOSITORY DEVOPS_DB.INTEGRATION.SNOWFLAKE_DDL_REPO FETCH;
+            --warehouse "CI_WH"
 
-              EXECUTE IMMEDIATE FROM
-                @DEVOPS_DB.INTEGRATION.SNOWFLAKE_DDL_REPO/branches/main/deploy/deploy_all.sql
-              USING (
-                DB_NAME     => 'MY_APP_DB',
-                SCHEMA_NAME => 'PUBLIC'
-              );
-            "
+      - name: Deploy to Snowflake
+        run: |
+          snow sql -c ci -q "
+            ALTER GIT REPOSITORY DEVOPS_DB.INTEGRATION.SNOWFLAKE_DDL_REPO FETCH;
+
+            EXECUTE IMMEDIATE FROM
+              @DEVOPS_DB.INTEGRATION.SNOWFLAKE_DDL_REPO/branches/main/deploy/deploy_all.sql
+            USING (
+              DB_NAME     => 'MY_APP_DB',
+              SCHEMA_NAME => 'PUBLIC'
+            );
+          "
